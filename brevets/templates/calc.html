@@ -52,7 +52,7 @@
 {% endwith %}
 
 <!-- Design on bootstrap grid -->
-<form role="form">
+<form role="form" id="brevet">
 <div class="row">
   <div class="col-md-4">
     <label>Distance</label>
@@ -87,7 +87,7 @@
 	<th>Close</th>
 	<th>Notes</th>
       </tr>
-   {% for row in range(20) %}
+      {% for row in range(20) %}
     <tr class="control">
       <!-- Dist (mi) -->
       <td><input name="miles" type="number" 
@@ -106,7 +106,7 @@
       <!-- Notes (error messages for this row) -->
       <td class="notes"> &nbsp; </td>
     </tr>
-    {% endfor %}
+      {% endfor %}
   </table>
   </div> <!-- col -->
   </div> <!-- row -->
@@ -124,30 +124,47 @@
   // stash them in hidden fields.) 
   function calc_times(control) {
     var km = control.find("input[name='km']").val();
+    // The whole distance of this brevet.
+    var brevet_dist = $('#brevet_dist_km option:selected').val();
+    // Time in ISO format when the brevet officially begins.
+    var brevet_begin = new Date($('#begin_date').val() + " " + $(' #begin_time').val()).toISOString();
     var open_time_field = control.find("input[name='open']");
     var close_time_field = control.find("input[name='close']");
-    
-    $.getJSON(TIME_CALC_URL, { km: km }, 
+
+    $.getJSON(TIME_CALC_URL, { km: km, brevet_dist: brevet_dist, brevet_begin: brevet_begin},
       // response handler
       function(data) {
          var times = data.result;
          console.log("Got a response: " +  times);
          console.log("Response.open = " + times.open);
-         open_time_field.val( moment(times.open).format("ddd M/D H:mm"));
-         close_time_field.val( moment(times.close).format("ddd M/D H:mm"));
-       } // end of handler function
-     );// End of getJSON
+         console.log("Response.close = " + times.close);
+         if (times.open === "Fail"){    // If entered Control Point is beyond the brevet distance.
+            document.getElementsByClassName('notes')[0].innerHTML = "" +
+                "Control Point is beyond the additional 20% threshold of the total brevet distance." +
+                "Please refresh the page to continue using."
+         }else {
+            open_time_field.val( moment(times.open).format("ddd M/D H:mm"));
+            close_time_field.val( moment(times.close).format("ddd M/D H:mm"));
+         }
+        } // end of handler function
+      );// End of getJSON
+    }
+
+    // Clean cache on refresh.
+    function resetForms() {
+        document.forms['brevet'].reset();
     }
 
   $(document).ready(function(){
    // Do the following when the page is finished loading
+      resetForms();
 
       $('input[name="miles"]').change(
          function() {
              var miles = parseFloat($(this).val());
              var km = (1.609344 * miles).toFixed(1) ;
              console.log("Converted " + miles + " miles to " + km + " kilometers");
-             var control_entry = $(this).parents(".control")
+             var control_entry = $(this).parents(".control");
              var target = control_entry.find("input[name='km']");
              target.val( km );
              // Then calculate times for this entry
@@ -159,13 +176,12 @@
              var km = parseFloat($(this).val());
              var miles = (0.621371 * km).toFixed(1) ;
              console.log("Converted " + km + " km to " + miles + " miles");
-             var control_entry = $(this).parents(".control")
+             var control_entry = $(this).parents(".control");
              var target = control_entry.find("input[name='miles']");
              target.val( miles );
              // Then calculate times for this entry
              calc_times(control_entry);
           });
-
      });   // end of what we do on document ready
 
 </script>
